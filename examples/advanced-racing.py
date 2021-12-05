@@ -2,6 +2,7 @@ import aprel
 import numpy as np
 import gym
 
+from tqdm import tqdm
 
 def feature_func(traj):
     """Returns the features of the given MountainCar trajectory, i.e. \Phi(traj).
@@ -36,7 +37,8 @@ def main(args):
     trajectory_set = aprel.generate_trajectories_randomly(env, num_trajectories=args['num_trajectories'],
                                                           max_episode_length=args['max_episode_length'],
                                                           file_name=args['env'], restore=args['restore'],
-                                                          headless=args['headless'], seed=args['seed'])
+                                                          #headless=args['headless'], seed=args['seed'])
+                                                          headless=False, seed=args['seed'])
     features_dim = len(trajectory_set[0].features)
 
     # Initialize the query optimizer
@@ -99,20 +101,20 @@ def main(args):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, required=True,
+    parser.add_argument('--env', type=str, required=False, default="CarRacing-v0",
                         help='The name of the OpenAI Gym environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Seed for numpy randomness.')
-    parser.add_argument('--num_trajectories', type=int, default=6,
+    parser.add_argument('--num_trajectories', type=int, default=8,
                         help='Number of trajectories in the discrete trajectory set for query optimization.')
-    parser.add_argument('--max_episode_length', type=int, default=None,
-                        help='Maximum number of time steps per episode ONLY FOR the new trajectories. Defaults to no limit.')
+    parser.add_argument('--max_episode_length', type=int, default = None, # default=250 
+                        help='Maximum number of time steps per episode ONLY FOR the new trajectories. .') # Defaults to no limit
     parser.add_argument('--restore', dest='restore', action='store_true',
                         help='Use this flag if you want to restore the discrete trajectory set from the existing data folder.')
     parser.set_defaults(restore=False)
     parser.add_argument('--headless', dest='headless', action='store_true',
                         help='Use this flag if you want to run the code in a headless way, i.e., with no visualization.')
-    parser.set_defaults(headless=False)
+    parser.set_defaults(headless=False) # False dnoursi
     parser.add_argument('--simulate', dest='simulate', action='store_true',
                         help='Use this flag if you want to run the code with simulated synthetic users who follow a softmax model.')
     parser.set_defaults(simulate=False)

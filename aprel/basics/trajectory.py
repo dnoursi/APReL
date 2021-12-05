@@ -3,7 +3,7 @@
 from typing import List, Tuple, Union
 import time
 import numpy as np
-from moviepy.editor import VideoFileClip
+from moviepy.editor import VideoFileClip, vfx
 
 from aprel.basics import Environment
 
@@ -48,7 +48,7 @@ class Trajectory:
         :Note: FPS is fixed at 25 for video visualizations.
         """
         if self.clip_path is not None:
-            clip = VideoFileClip(self.clip_path)
+            clip = VideoFileClip(self.clip_path).fx(vfx.speedx, 3)
             clip.preview(fps=30)
             clip.close()
         else:

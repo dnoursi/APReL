@@ -8,7 +8,7 @@ import warnings
 import os
 
 from aprel.basics import Environment, Trajectory, TrajectorySet
-
+from tqdm import tqdm
 
 def generate_trajectories_randomly(env: Environment,
                                    num_trajectories: int,
@@ -35,7 +35,7 @@ def generate_trajectories_randomly(env: Environment,
 
     Returns:
         TrajectorySet: A set of :py:attr:`num_trajectories` randomly generated trajectories.
-        
+
     Raises:
         AssertionError: if :py:attr:`restore` is true, but no :py:attr:`file_name` is given.
     """
@@ -56,10 +56,10 @@ def generate_trajectories_randomly(env: Environment,
                     break
     else:
         trajectories = TrajectorySet([])
-    
+
     if not os.path.exists('aprel_trajectories'):
         os.makedirs('aprel_trajectories')
-    
+
     if trajectories.size >= num_trajectories:
         trajectories = TrajectorySet(trajectories[:num_trajectories])
     else:
@@ -67,7 +67,7 @@ def generate_trajectories_randomly(env: Environment,
         if env_has_rgb_render and not os.path.exists('aprel_trajectories/clips'):
             os.makedirs('aprel_trajectories/clips')
         env.action_space.seed(seed)
-        for traj_no in range(trajectories.size, num_trajectories):
+        for traj_no in tqdm(range(trajectories.size, num_trajectories)):
             traj = []
             obs = env.reset()
             if env_has_rgb_render:
@@ -99,6 +99,7 @@ def generate_trajectories_randomly(env: Environment,
         pickle.dump(trajectories, f)
 
     if not headless and trajectories[-1].clip_path is None:
+        print("warning!!!")
         warnings.warn(('headless=False was set, but either the environment is missing '
                        'a render function or the render function does not accept '
                        'mode=\'rgb_array\'. Automatically switching to headless mode.'))

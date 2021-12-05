@@ -8,12 +8,12 @@ class Environment:
     """
     This is a wrapper around an OpenAI Gym environment, so that
     we can store the features function along with the environment itself.
-    
+
     Parameters:
         env (gym.Env): An OpenAi Gym environment.
         features (Callable):  Given a :class:`.Trajectory`, this function
             must return a :class:`numpy.array` of features.
-    
+
     Attributes:
         env (gym.Env): The wrapped environment.
         features (Callable): Features function.
@@ -39,6 +39,8 @@ class Environment:
         # Mirror the render function only if it exists
         self.render_exists = callable(getattr(self.env, "render", None))
         self.render = self.env.render if self.render_exists else None
+        print(self.render_exists, "render exists")
+        print(self.render, "render")
 
         # Mirror the close function only if it exists
         self.close_exists = callable(getattr(self.env, "close", None))

@@ -2,6 +2,7 @@ import aprel
 import numpy as np
 import gym
 
+from tqdm import tqdm
 
 env_name = 'MountainCarContinuous-v0'
 gym_env = gym.make(env_name)
@@ -29,7 +30,7 @@ def feature_func(traj):
 
 env = aprel.Environment(gym_env, feature_func)
 # env.render()
-trajectory_set = aprel.generate_trajectories_randomly(env, num_trajectories=10,
+trajectory_set = aprel.generate_trajectories_randomly(env, num_trajectories=5,
                                                       max_episode_length=300,
                                                       file_name=env_name, seed=0)
 features_dim = len(trajectory_set[0].features)
@@ -45,10 +46,25 @@ print('Estimated user parameters: ' + str(belief.mean))
 
 query = aprel.PreferenceQuery(trajectory_set[:2])
 
-for query_no in range(10):
+weightss = []
+import pdb
+
+for query_no in tqdm(range(30)):
     queries, objective_values = query_optimizer.optimize('mutual_information', belief, query)
     print('Objective Value: ' + str(objective_values[0]))
 
-    responses = true_user.respond(queries[0])
+    #import pdb
+
+    #pdb.set_trace()
+    
+    print(queries[0].slate.trajectories[0].features)
+    print(queries[0].slate.trajectories[1].features)
+    k = 1
+    responses = [int(queries[0].slate.trajectories[1].features[k] > queries[0].slate.trajectories[0].features[k])] # either 0 or 1
+    #responses = true_user.respond(queries[0])
     belief.update(aprel.Preference(queries[0], responses[0]))
     print('Estimated user parameters: ' + str(belief.mean))
+    weightss.append(belief.mean["weights"])
+
+pdb.set_trace()
+
