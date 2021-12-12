@@ -1,15 +1,12 @@
 import aprel
 import numpy as np
 import gym
-
 from pprint import pprint
-
 import random
 from tqdm import tqdm
 import copy
 import pdb
 import matplotlib.pyplot as plt
-
 
 # https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-epsilon-greedy-algorithm-8057d7087423
 class EpsilonGreedyMAB:
@@ -32,7 +29,7 @@ class EpsilonGreedyMAB:
     # Epsilon greedy arm selection
     def select_arm(self):
         epsilon = np.random.random()
-        
+
         # If prob is not in epsilon, do exploitation of best arm so far
         if (epsilon > self.epsilons[self.update_count > self.explore_length]) and (
             sum(self.values) > 0
@@ -50,17 +47,14 @@ class EpsilonGreedyMAB:
         # update counts pulled for chosen arm
         self.counts[chosen_arm] = self.counts[chosen_arm] + 1
         n = self.counts[chosen_arm]
+        self.update_count += 1
 
         # Update average/mean value/reward for chosen arm
         value = self.values[chosen_arm]
         new_value = ((n - 1) / float(n)) * value + (1 / float(n)) * reward
         self.values[chosen_arm] = new_value
-        
-        self.update_count += 1
-        
+
         return
-
-
 
 
 def feature_func(traj):
@@ -82,59 +76,61 @@ def feature_func(traj):
 
 
 def main(u1_error):
-    random.seed(7)
 
+    # General initialize
+    random.seed(7)
+    np.random.seed(0)
     env_name = "MountainCarContinuous-v0"
     gym_env = gym.make(env_name)
-
-    np.random.seed(0)
     gym_env.seed(0)
-
     env = aprel.Environment(gym_env, feature_func)
     # env.render()
+
+    # Generate features
     trajectory_set = aprel.generate_trajectories_randomly(
-        env, num_trajectories=15, max_episode_length=200, file_name=env_name, seed=0, headless=True
+        env,
+        num_trajectories=20,
+        max_episode_length=200,
+        file_name=env_name,
+        seed=0,
+        headless=True,
     )
     features_dim = len(trajectory_set[0].features)
     query_optimizer = aprel.QueryOptimizerDiscreteTrajectorySet(trajectory_set)
+    params = {
+        "weights": [0] * len(aprel.util_funs.get_random_normalized_vector(features_dim))
+    }
 
-    params = {"weights": [0] * len(aprel.util_funs.get_random_normalized_vector(features_dim))}
-
-    ### ###
+    # Initialize population model portion
     num_users = 2
-    n_queries = 36
+    n_queries = 50
     bandit = EpsilonGreedyMAB(
         epsilons=[0.9, 0.5], n_arms=num_users, explore_length=int(n_queries / 3)
     )
     true_user = aprel.HumanUser(delay=0.5)
-
     user_model = aprel.SoftmaxUser(params)
     belief = aprel.SamplingBasedBelief(user_model, [], params)
-
     print("Estimated users parameters: ", str(belief.mean))
 
-    ###
-
-
+    # Begin simulation
     user_choices = []
     rewards = []
     weightss = []
     bandit_weightss = []
-
-
     query = aprel.PreferenceQuery(trajectory_set[:2])
     for query_no in tqdm(range(n_queries)):
         user_choice = bandit.select_arm()
         user_choices.append(user_choice)
-
         print("\n\n\nnow query no", query_no, "user choice", user_choice)
 
         queries, objective_values = query_optimizer.optimize(
             "mutual_information", belief, query
         )
-
         print("Objective Value: " + str(objective_values[0]))
 
+        # Now - simulate user responses!
+        # responses = true_user.respond(queries[0])
+        # k=1 represents the "maximum height position" coordinate of the representation vector
         k = 1
         responses = [
             int(
@@ -142,34 +138,32 @@ def main(u1_error):
                 > queries[0].slate.trajectories[0].features[k]
             )
         ]
-    
         if user_choice == 1 and np.random.random() < u1_error:
-            responses[0] = 1-responses[0]
-          # either 0 or 1
-        # responses = true_user.respond(queries[0])
+            responses[0] = 1 - responses[0]
+        # response entires are either 0 or 1
 
-        #before = belief.mean["weights"]
-        #print("Estimated user parameters before update: " + str(belief.mean))
-    
         belief.update(aprel.Preference(queries[0], responses[0]))
         print("Estimated user parameters after update: " + str(belief.mean))
         weightss.append(copy.copy(belief.mean["weights"]))
-        
 
+        # Update bandit model fit
         if len(weightss) > 1:
-            reward = abs(np.dot(weightss[-2], weightss[-1]) / (np.linalg.norm(weightss[-2])* np.linalg.norm(weightss[-1])) )
+            reward =  abs( #1.0 - 
+                np.dot(weightss[-2], weightss[-1])
+                / (np.linalg.norm(weightss[-2]) * np.linalg.norm(weightss[-1]))
+            )
             bandit.update(user_choice, reward)
             rewards.append(reward)
-            
         bandit_weightss.append(copy.copy(bandit.values))
 
+        # Print/debug
         dbgs = [
             (False, "bandit", bandit),
             (False, "belief", belief),
             (False, "user_model", user_model),
             (False, "true_user", true_user),
             (
-                True,
+                False,
                 "belief",
                 [
                     (k, len(vars(belief)[k]))
@@ -178,9 +172,7 @@ def main(u1_error):
                 ],
             ),
         ]
-
-        print("entropy", (sum([np.exp(p) * p for p in belief.logprobs])))
-
+        # print("entropy", (sum([np.exp(p) * p for p in belief.logprobs])))
         for dbg in dbgs:
             if dbg[0]:
                 print(dbg[1], "params")
@@ -188,7 +180,6 @@ def main(u1_error):
                     pprint(vars(dbg[2]))
                 else:
                     print(dbg[2])
-
         if False:
             print("bandit params are")
             pprint(vars(bandit))
@@ -199,36 +190,38 @@ def main(u1_error):
             print("user params are")
             pprint(vars(true_user))
 
-
+    # Make plots
     plt.plot(weightss)
-    plt.legend(['min_pos','max_pos','velocity'])
-    plt.title("belief params for error_rate="+str(u1_error))
-    plt.savefig("belief.e="+str(u1_error)+"img.png")
+    plt.legend(["min_pos", "max_pos", "velocity"])
+    plt.title("Reward model belief params, error_rate=" + str(u1_error))
+    plt.savefig("belief.e=" + str(u1_error) + "img.png")
     plt.clf()
-    #plt.show()
-    
+    # plt.show()
+
     plt.plot(rewards)
-    #plt.legend(['min_pos','max_pos','velocity'])
-    plt.title("rewards for error_rate="+str(u1_error))
-    plt.savefig("rewards.e="+str(u1_error)+"img.png")
+    # plt.legend(['min_pos','max_pos','velocity'])
+    plt.title("Bandit rewards, error_rate=" + str(u1_error))
+    plt.savefig("rewards.e=" + str(u1_error) + "img.png")
     plt.clf()
-    #plt.show()
-    
+    # plt.show()
+
     plt.plot(user_choices)
-    plt.title("user_choices for error_rate="+str(u1_error))
-    plt.savefig("user.e="+str(u1_error)+"img.png")
+    plt.title("User choices by bandit, error_rate=" + str(u1_error))
+    plt.savefig("user.e=" + str(u1_error) + "img.png")
     plt.clf()
-    #plt.show()
+    # plt.show()
 
     plt.plot(bandit_weightss)
-    plt.legend(['arm 0','arm 1'])
-    plt.title("bandit_weights for error_rate="+str(u1_error))
-    plt.savefig("banditweight.e="+str(u1_error)+"img.png")
+    plt.legend(["arm 0", "arm 1"])
+    plt.title("Bandit Weights for error_rate=" + str(u1_error))
+    plt.savefig("banditweight.e=" + str(u1_error) + "img.png")
     plt.clf()
-    #plt.show()
-    
-    pdb.set_trace()
-    
-u1_errors = [0.01, 0.2, 0.3, 0.4, 0.6, 0.8]
-for u1e in u1_errors:
-    main(u1e)
+    # plt.show()
+
+    # pdb.set_trace()
+
+
+if __name__ == "__main__":
+    u1_errors = [0.15, 0.25, 0.3] + [0.01, 0.05, 0.1, 0.2]
+    for u1e in u1_errors:
+        main(u1e)
